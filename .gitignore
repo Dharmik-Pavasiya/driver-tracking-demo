@@ -32,7 +32,6 @@ migrate_working_dir/
 .pub/
 /build/
 /mock_api/data/
-/docs/frames/
 /submission.zip
 /coverage/
 
