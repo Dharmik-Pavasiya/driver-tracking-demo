@@ -24,7 +24,17 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
+	<key>NSLocationWhenInUseUsageDescription</key>
+    <string>Record your location during a driver tracking session.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Continue an active driver tracking session while the app is minimized or the screen is locked.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Upload saved tracking points to the assessment mock API on your local network.</string>
+    <key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -73,3 +83,4 @@
 	</array>
 </dict>
 </plist>
+

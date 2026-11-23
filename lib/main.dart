@@ -1,41 +1,19 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'data/database_factory.dart';
-import 'data/location_repository.dart';
-import 'presentation/tracking_controller.dart';
-import 'presentation/tracking_screen.dart';
-import 'services/location_api.dart';
-import 'services/location_source.dart';
-import 'services/network_monitor.dart';
-import 'services/sync_service.dart';
+import 'app/app_binding.dart';
+import 'router/app_pages.dart';
+import 'router/app_routes.dart';
+import 'screens/tracking_screen/data/database_factory.dart';
+import 'screens/tracking_screen/data/location_repository.dart';
 
+/// Opens SQLite before the screen appears so every GPS fix can be saved first.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     final repository = LocationRepository(await openOutboxDatabase());
-    final network = NetworkMonitor();
-    final api = RestLocationApi(
-      baseUrl: const String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'http://localhost:8081',
-      ),
-    );
-    final sync = SyncService(
-      repository: repository,
-      api: api,
-      isOnline: () => network.online,
-    );
-    final controller = TrackingController(
-      repository: repository,
-      source: SimulatedLocationSource(),
-      network: network,
-      api: api,
-      sync: sync,
-    );
-    runApp(DriverTrackingApp(controller: controller));
-    unawaited(controller.initialize());
+    await repository.initialize();
+    runApp(DriverTrackingApp(repository: repository));
   } catch (error) {
     runApp(
       MaterialApp(
@@ -43,7 +21,9 @@ Future<void> main() async {
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: SelectableText('Could not open local storage.\n$error'),
+              child: Text(
+                'Unable to open local storage. Restart the app.\n$error',
+              ),
             ),
           ),
         ),
@@ -52,46 +32,24 @@ Future<void> main() async {
   }
 }
 
-class DriverTrackingApp extends StatefulWidget {
-  const DriverTrackingApp({super.key, required this.controller});
-  final TrackingController controller;
-  @override
-  State<DriverTrackingApp> createState() => _DriverTrackingAppState();
-}
+/// Defines the standard mobile theme, shared bindings and GetX routes.
+class DriverTrackingApp extends StatelessWidget {
+  /// Receives the ready repository instead of opening a database in the view.
+  const DriverTrackingApp({super.key, required this.repository});
+  final LocationRepository repository;
 
-class _DriverTrackingAppState extends State<DriverTrackingApp>
-    with WidgetsBindingObserver {
+  /// Builds a Material application containing the tracking screen.
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(widget.controller.network.refresh());
-      unawaited(widget.controller.refresh());
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    widget.controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Driver tracking demo',
+  Widget build(BuildContext context) => GetMaterialApp(
+    title: 'Driver Location',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF146B52)),
-      scaffoldBackgroundColor: const Color(0xFFF4F6F5),
-      cardTheme: const CardThemeData(elevation: 0, color: Colors.white),
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      scaffoldBackgroundColor: Colors.white,
     ),
-    home: TrackingScreen(controller: widget.controller),
+    initialBinding: AppBinding(repository),
+    initialRoute: AppRoutes.tracking,
+    getPages: AppPages.pages,
   );
 }

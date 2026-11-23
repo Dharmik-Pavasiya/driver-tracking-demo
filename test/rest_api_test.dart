@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:driver_tracking_demo/domain/location_record.dart';
-import 'package:driver_tracking_demo/services/location_api.dart';
+import 'package:driver_tracking_demo/screens/tracking_screen/data/location_record.dart';
+import 'package:driver_tracking_demo/network/api_provider/location_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import '../mock_api/server.dart';
 
+/// Checks the HTTP contract and real mock-server idempotency behavior.
 void main() {
   const id = 'stable-id';
   final point = LocationRecord(

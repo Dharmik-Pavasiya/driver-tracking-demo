@@ -4,14 +4,20 @@ import 'dart:io';
 
 /// Local-only mock with durable deduplication and serialized request handling.
 class MockLocationServer {
+  /// Receives the JSON file used to retain accepted IDs after server restart.
   MockLocationServer({required this.storage});
   final File storage;
   final Map<String, Map<String, dynamic>> _accepted = {};
   HttpServer? _server;
   Future<void> _requests = Future.value();
+
+  /// Counts unique accepted records, not the number of HTTP requests.
   int get acceptedCount => _accepted.length;
+
+  /// Exposes the bound port; tests use port zero for an available ephemeral port.
   int get port => _server!.port;
 
+  /// Restores saved IDs, then starts serialized handling of local HTTP requests.
   Future<void> start({int port = 8081, String host = '127.0.0.1'}) async {
     if (await storage.exists()) {
       final saved = jsonDecode(await storage.readAsString()) as List<dynamic>;
@@ -29,6 +35,8 @@ class MockLocationServer {
     });
   }
 
+  /// Validates a location and returns success, duplicate success or a failure.
+  /// New acceptance is saved before the optional post-commit failure is returned.
   Future<void> _handle(HttpRequest request) async {
     request.response.headers
       ..set('Access-Control-Allow-Origin', '*')
@@ -129,17 +137,20 @@ class MockLocationServer {
     }
   }
 
+  /// Writes a consistent HTTP status and JSON body for the request.
   void _reply(HttpRequest request, int code, Map<String, dynamic> body) {
     request.response.statusCode = code;
     request.response.write(jsonEncode(body));
   }
 
+  /// Closes the listener and waits for queued request handling to finish.
   Future<void> close() async {
     await _server?.close(force: true);
     await _requests;
   }
 }
 
+/// Starts the assessment API. Optional arguments choose the port and bind address.
 Future<void> main(List<String> args) async {
   final server = MockLocationServer(
     storage: File('mock_api/data/locations.json'),

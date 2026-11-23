@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:driver_tracking_demo/data/location_repository.dart';
-import 'package:driver_tracking_demo/domain/location_record.dart';
-import 'package:driver_tracking_demo/services/location_api.dart';
-import 'package:driver_tracking_demo/services/sync_service.dart';
+import 'package:driver_tracking_demo/screens/tracking_screen/data/location_repository.dart';
+import 'package:driver_tracking_demo/screens/tracking_screen/data/location_record.dart';
+import 'package:driver_tracking_demo/network/api_provider/location_api.dart';
+import 'package:driver_tracking_demo/screens/tracking_screen/service/sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+/// Creates a predictable fix so tests can compare saved IDs and payloads.
 LocationRecord point(String id) => LocationRecord(
   id: id,
   latitude: 12.9716,
@@ -15,12 +16,14 @@ LocationRecord point(String id) => LocationRecord(
   capturedAt: DateTime.utc(2026, 1, 1),
 );
 
+/// Simulates failure or a slow request without a network server.
 class FakeApi implements LocationApi {
   int calls = 0;
   final Set<String> accepted = {};
   Object? failure;
   Completer<void>? gate;
   @override
+  /// Counts requests, optionally waits/fails, and otherwise accepts the record.
   Future<void> upload(LocationRecord record) async {
     calls++;
     await gate?.future;
@@ -29,6 +32,7 @@ class FakeApi implements LocationApi {
   }
 }
 
+/// Checks persisted offline rows, duplicate protection and retry scheduling.
 void main() {
   sqfliteFfiInit();
   late Directory directory;
