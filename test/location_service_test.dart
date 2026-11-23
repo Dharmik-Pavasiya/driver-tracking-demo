@@ -10,6 +10,7 @@ void main() {
       TargetPlatform.android,
     ) as AndroidSettings;
     expect(settings.distanceFilter, 10);
+    expect(settings.forceLocationManager, isTrue);
     expect(settings.foregroundNotificationConfig?.enableWakeLock, isTrue);
     expect(settings.foregroundNotificationConfig?.setOngoing, isTrue);
   });

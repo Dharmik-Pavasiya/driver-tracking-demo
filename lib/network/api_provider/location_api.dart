@@ -10,6 +10,7 @@ class UploadException implements Exception {
   const UploadException(this.message, {this.retryable = true});
   final String message;
   final bool retryable;
+
   /// Supplies readable error text for the saved record and screen.
   @override
   String toString() => message;

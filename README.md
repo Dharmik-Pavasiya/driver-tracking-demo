@@ -95,6 +95,8 @@ GetX `Rx` fields update the view. `ever` workers react to network/sync changes. 
 
 ## Native background implementation
 
+The Android adapter uses `forceLocationManager: true` for the native GPS provider. It works with emulator GPS injection and devices without Google Play location services. Real GPS reception is still required on a physical phone.
+
 **Android:** `AndroidSettings.foregroundNotificationConfig` starts Geolocator's native `GeolocatorLocationService`. Its manifest merges `foregroundServiceType="location"`; the app declares foreground-service/location/wake-lock permissions and coarse/fine location. A wake lock supports delivery while the screen is off. The ongoing notification explains tracking; Android 13+ notification permission is requested. Denial does not stop the foreground service, but Android may show it only in the active-apps/task-manager UI. Cancelling the GPS subscription stops the service and its notification. A journey is started while the activity is visible, so while-in-use location permission is sufficient for that ongoing foreground service; this demo does not auto-start from the background. Additional background location authorization and modern foreground-start restrictions matter for restart-from-background use cases.
 
 **iOS:** `Info.plist` includes location usage descriptions and `UIBackgroundModes: location`; the Xcode target has the Background Modes capability. `AppleSettings` enables background updates, disables automatic pausing during an active journey, selects automotive navigation, and shows the system location indicator. Geolocator uses native `CLLocationManager`. This is iOS's location background execution pathway, not an Android-style foreground service or a generic Dart background daemon. Authorization is requested before starting. When-in-use permission can continue an active authorized background location session; Always authorization is relevant to additional relaunch/background-start use cases. Stop cancels native location updates.
@@ -121,3 +123,12 @@ Tests use actual temporary SQLite databases, injected location/network streams a
 The optional [native Android emulator check](docs/android-emulator-check.md) verifies actual GPS callbacks while minimized/screen-off and reconnect synchronization. It is separate from the normal unit tests. On Windows, `kotlin.incremental=false` avoids Kotlin's cross-drive Pub-cache error; it changes build caching, not app behavior.
 
 GitHub Actions runs analysis/tests and an Android APK build, plus an unsigned iOS build on macOS. The Android APK is attached as a CI artifact. Signing, store submission, authentication, encryption, batching and retention cleanup are outside this small demonstration.
+
+### Verification performed
+
+- All 14 device-independent tests passed; analysis reported no issues.
+- The Android debug APK compiled successfully.
+- The native integration test passed on the Android 17 emulator: actual GPS fixes arrived while minimized and screen-off, Stop removed the foreground service, and reconnection synchronized the pending records. No Flutter frames were pumped during the background wait.
+- An unsigned iOS debug build passed on the macOS CI runner. iPhone screen-lock behavior has not been tested on a physical device.
+
+The [Android screen capture](docs/android-tracking.png) shows the deliberately plain UI. It contains emulator data only.

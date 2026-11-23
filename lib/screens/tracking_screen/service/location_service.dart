@@ -57,6 +57,9 @@ class DeviceLocationService implements LocationSource {
   static LocationSettings settingsFor(TargetPlatform platform) {
     if (platform == TargetPlatform.android) {
       return AndroidSettings(
+        // Use Android's GPS provider directly. Emulator fixes and phones without
+        // Google Play location services then follow the same native GPS path.
+        forceLocationManager: true,
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
         intervalDuration: const Duration(seconds: 5),
