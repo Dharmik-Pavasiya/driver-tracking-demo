@@ -133,4 +133,4 @@ GitHub Actions runs analysis/tests and an Android APK build, plus an unsigned iO
 
 The [Android screen capture](docs/android-tracking.png) shows the deliberately plain UI. It contains emulator data only.
 
-An [18-second native Android demonstration](docs/demo.mp4) shows Start, offline capture, reconnection synchronization and Stop. The coordinates are injected into the emulator's native GPS provider; they are not a recording of a real driver's location.
+An [approximately 13-second native Android demonstration](docs/demo.mp4) shows Start, offline capture, reconnection synchronization and Stop. The coordinates are injected into the emulator's native GPS provider; they are not a recording of a real driver's location.
