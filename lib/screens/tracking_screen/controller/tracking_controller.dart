@@ -82,7 +82,7 @@ class TrackingController extends GetxController with WidgetsBindingObserver {
     unawaited(sync.synchronize());
   }
 
-  /// Cancels the simulation timer or the native GPS service and notification.
+  /// Cancels native GPS, its notification, and the periodic timer when enabled.
   Future<void> stopTracking() async {
     await _locations?.cancel();
     _locations = null;

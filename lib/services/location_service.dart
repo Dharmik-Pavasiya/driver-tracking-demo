@@ -19,6 +19,14 @@ abstract interface class LocationSource {
 /// Android uses Geolocator's foreground service; iOS uses Core Location's
 /// background location mode. Emulator-injected GPS uses this same adapter.
 class DeviceLocationService implements LocationSource {
+  /// Normal journeys use a movement filter; periodic sampling can request all fixes.
+  const DeviceLocationService({
+    this.distanceFilter = 10,
+    this.interval = const Duration(seconds: 5),
+  });
+  final int distanceFilter;
+  final Duration interval;
+
   /// Requests permission while the user is still on the visible Start screen.
   /// Tracking never auto-starts from the background or after app termination.
   @override
@@ -52,17 +60,21 @@ class DeviceLocationService implements LocationSource {
   }
 
   /// Selects background-capable native settings for the current mobile platform.
-  /// Ten metres avoids stationary noise. Android's five-second cadence is a
-  /// request to the OS, not a promise of exact timing.
-  static LocationSettings settingsFor(TargetPlatform platform) {
+  /// The defaults filter ten metres and request five-second Android updates.
+  /// Periodic mode uses zero metres and three seconds. Timing is an OS request.
+  static LocationSettings settingsFor(
+    TargetPlatform platform, {
+    int distanceFilter = 10,
+    Duration interval = const Duration(seconds: 5),
+  }) {
     if (platform == TargetPlatform.android) {
       return AndroidSettings(
         // Use Android's GPS provider directly. Emulator fixes and phones without
         // Google Play location services then follow the same native GPS path.
         forceLocationManager: true,
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-        intervalDuration: const Duration(seconds: 5),
+        distanceFilter: distanceFilter,
+        intervalDuration: interval,
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'Driver location tracking',
           notificationText: 'Tracking is active. Open the app to stop.',
@@ -73,7 +85,7 @@ class DeviceLocationService implements LocationSource {
     }
     return AppleSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
+      distanceFilter: distanceFilter,
       activityType: ActivityType.automotiveNavigation,
       pauseLocationUpdatesAutomatically: false,
       allowBackgroundLocationUpdates: true,
@@ -86,7 +98,11 @@ class DeviceLocationService implements LocationSource {
   @override
   Stream<LocationRecord> start() =>
       Geolocator.getPositionStream(
-        locationSettings: settingsFor(defaultTargetPlatform),
+        locationSettings: settingsFor(
+          defaultTargetPlatform,
+          distanceFilter: distanceFilter,
+          interval: interval,
+        ),
       ).map(
         (position) => LocationRecord(
           id: const Uuid().v4(),

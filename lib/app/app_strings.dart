@@ -12,8 +12,8 @@ abstract final class AppStrings {
   static const uploading = 'Uploading locations...';
   static const demoControls = 'Demo controls';
   static const simulateOffline = 'Simulate offline';
-  static const simulateLocation = 'Simulate location';
-  static const simulationHint = 'New coordinates every 3 seconds';
+  static const simulateLocation = 'GPS every 3 seconds';
+  static const simulationHint = 'Uses latest real GPS coordinates';
   static const mockApi = 'On-device mock API';
   static const healthy = 'Healthy';
   static const failBefore = 'Fail before saving';

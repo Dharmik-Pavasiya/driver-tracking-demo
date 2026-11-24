@@ -26,7 +26,15 @@ class AppBinding extends Bindings {
     final connection = Get.put(ConnectivityService(), permanent: true);
     final api = Get.put(RestLocationApi(baseUrl: apiUrl), permanent: true);
     Get.put<LocationSource>(DeviceLocationService(), permanent: true);
-    Get.put(const SimulatedLocationService(), permanent: true);
+    Get.put(
+      const SimulatedLocationService(
+        source: DeviceLocationService(
+          distanceFilter: 0,
+          interval: Duration(seconds: 3),
+        ),
+      ),
+      permanent: true,
+    );
     final sync = Get.put(
       SyncService(repository: repository, api: api, connection: connection),
       permanent: true,

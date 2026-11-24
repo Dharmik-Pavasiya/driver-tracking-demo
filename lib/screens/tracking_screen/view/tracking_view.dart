@@ -119,7 +119,7 @@ class TrackingView extends GetView<TrackingController> {
         : Text(error, style: const TextStyle(color: Colors.red));
   });
 
-  /// Simulation selection and Start/Stop determine this switch's enabled state.
+  /// Periodic GPS selection and Start/Stop determine this switch's enabled state.
   Widget _buildSimulationSwitch() => Obx(() {
     final busy = !controller.sync.isReady.value || controller.isStarting.value;
     return SwitchListTile(

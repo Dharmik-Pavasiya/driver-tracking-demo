@@ -21,4 +21,17 @@ void main() {
     expect(settings.pauseLocationUpdatesAutomatically, isFalse);
     expect(settings.showBackgroundLocationIndicator, isTrue);
   });
+  test(
+    'periodic GPS requests three-second updates without a movement filter',
+    () {
+      final settings = DeviceLocationService.settingsFor(
+        TargetPlatform.android,
+        distanceFilter: 0,
+        interval: const Duration(seconds: 3),
+      ) as AndroidSettings;
+      expect(settings.distanceFilter, 0);
+      expect(settings.intervalDuration, const Duration(seconds: 3));
+      expect(settings.foregroundNotificationConfig?.enableWakeLock, isTrue);
+    },
+  );
 }

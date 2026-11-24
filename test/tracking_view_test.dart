@@ -6,6 +6,7 @@ import 'package:driver_tracking_demo/screens/tracking_screen/controller/tracking
 import 'package:driver_tracking_demo/screens/tracking_screen/view/tracking_view.dart';
 import 'package:driver_tracking_demo/services/connectivity_service.dart';
 import 'package:driver_tracking_demo/services/location_api.dart';
+import 'package:driver_tracking_demo/services/location_service.dart';
 import 'package:driver_tracking_demo/services/simulated_location_service.dart';
 import 'package:driver_tracking_demo/services/sync_service.dart';
 import 'package:flutter/material.dart';
@@ -39,12 +40,12 @@ void main() {
       connection: connection,
     );
     sync.isReady.value = true;
-    const source = SimulatedLocationService();
+    final source = DeviceLocationService();
     controller = Get.put(
       TrackingController(
         repository: repository,
         source: source,
-        simulatedSource: source,
+        simulatedSource: SimulatedLocationService(source: source),
         api: api,
         sync: sync,
       ),

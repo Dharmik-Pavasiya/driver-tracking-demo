@@ -5,43 +5,51 @@ import 'package:uuid/uuid.dart';
 import '../models/location_record.dart';
 import 'location_service.dart';
 
-/// Generates a short demo route without GPS permission or emulator controls.
-/// This Dart timer runs while the app has execution time; use native GPS for
-/// background tracking because a suspended iOS app cannot keep a timer running.
+/// Simulates a three-second upload cadence using the latest real native GPS fix.
+/// Coordinates come only from the injected GPS source; no route is generated.
+/// The timer runs while the OS gives the app execution time.
 class SimulatedLocationService implements LocationSource {
-  /// The service has no resources until the controller subscribes to start().
-  const SimulatedLocationService();
+  /// Shares the app's native location source, or accepts a controlled GPS in tests.
+  const SimulatedLocationService({required this.source});
+  final LocationSource source;
 
-  /// Simulation does not access device GPS, so no permission is requested.
+  /// Requires the same GPS availability and permission as normal tracking.
   @override
-  Future<void> prepare() async {}
+  Future<void> prepare() => source.prepare();
 
-  /// Emits the first point after three seconds, then another every three seconds.
-  /// Cancelling the subscription stops the timer. The route loops every 100
-  /// points to keep coordinates in a small area, with a new ID on every tick.
-  /// The timer keeps running while asyncMap saves a previous point to SQLite;
-  /// the stream buffers those new points until the receiver is ready.
+  /// Waits for a native fix, then samples the latest one on each three-second tick.
+  /// Stationary samples retain the actual GPS coordinates and fix timestamp.
+  /// Each sample gets its own ID; retries keep that ID. Stop cancels GPS and timer.
+  /// Paused SQLite receivers buffer samples without pausing capture.
   @override
   Stream<LocationRecord> start() {
     late Timer timer;
+    late StreamSubscription<LocationRecord> gps;
     late StreamController<LocationRecord> locations;
-    var tick = 0;
+    LocationRecord? latest;
     locations = StreamController<LocationRecord>(
       onListen: () {
+        gps = source.start().listen(
+          (record) => latest = record,
+          onError: locations.addError,
+        );
         timer = Timer.periodic(const Duration(seconds: 3), (_) {
-          final offset = (tick % 100) * 0.0001;
-          tick++;
+          final fix = latest;
+          if (fix == null) return;
           locations.add(
             LocationRecord(
               id: const Uuid().v4(),
-              latitude: 12.9716 + offset,
-              longitude: 77.5946 + offset,
-              capturedAt: DateTime.now().toUtc(),
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+              capturedAt: fix.capturedAt,
             ),
           );
         });
       },
-      onCancel: () => timer.cancel(),
+      onCancel: () async {
+        timer.cancel();
+        await gps.cancel();
+      },
     );
     return locations.stream;
   }

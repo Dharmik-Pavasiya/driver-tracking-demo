@@ -1,6 +1,6 @@
 # Driver Location
 
-A focused Android/iOS Flutter demo using GetX, native or simulated locations and SQLite. The single screen has Start/Stop, latest coordinates, upload counts, recent points and demo controls. A physical phone supplies real GPS, or the app can generate a demo location every three seconds.
+A focused Android/iOS Flutter demo using GetX, native GPS and SQLite. The single screen has Start/Stop, latest coordinates, upload counts, recent points and demo controls. Both modes use real native GPS: normal tracking captures delivered fixes, and periodic mode samples the latest measured fix every three seconds.
 
 ## Setup
 
@@ -20,9 +20,11 @@ For a standalone Android installation, run `flutter build apk --release` and ins
 
 Enable GPS, press **Start tracking**, and grant location permission. Android also requests notification permission for its ongoing tracking notification. Start the journey while the app is visible, then minimize or lock it. Move beyond the ten-metre distance filter to receive another fix. GPS can take a few seconds, especially indoors.
 
-For automatic demo coordinates, enable **Simulate location** before Start. No GPS permission or movement is needed. The first point arrives after three seconds, followed by a new coordinate every three seconds. Points follow a small repeating route with a fresh UUID and UTC time per point. They use the same SQLite, internet checks, REST uploads and retries as native GPS. Stop cancels the timer; stop the journey before changing modes.
+Enable **GPS every 3 seconds** before Start to sample real coordinates on a timer. GPS must be enabled and location permission granted. The app waits for a native fix, then saves the latest measured coordinates every three seconds. Periodic mode requests Android GPS updates every three seconds with a zero-distance filter; the OS controls when fixes arrive. Moving the phone updates that fix; stationary samples may have identical coordinates. No offsets, random coordinates or generated routes are used.
 
-The automatic simulation runs while the app has execution time. It does not start a native location service or keep a suspended iOS process alive. Use real GPS or native emulator injection when assessing minimized/screen-lock tracking. For native GPS simulation, use Android Emulator → Extended Controls → Location, or iOS Simulator → Features → Location.
+Each sample has a fresh UUID and preserves the native GPS fix timestamp, so repeating a stationary fix does not claim that GPS measured a new position. The same SQLite, internet checks, REST uploads and retries apply. Stop cancels both the timer and native GPS subscription.
+
+Periodic mode also starts the native location service. Its three-second Dart timer runs while the OS gives the app execution time; iOS suspension can delay ticks. Normal native GPS remains the option for assessing background callbacks without a timer. For emulator GPS, use Android Emulator → Extended Controls → Location, or iOS Simulator → Features → Location.
 
 ## Try the workflow
 
@@ -52,7 +54,7 @@ lib/
     location_repository.dart        All SQLite reads and updates
   services/
     location_service.dart           Native GPS and permission handling
-    simulated_location_service.dart Three-second demo coordinates
+    simulated_location_service.dart Sample real GPS every three seconds
     connectivity_service.dart       Confirm actual internet access
     location_api.dart               POST and acknowledgement validation
     mock_api_service.dart           Install-and-run local REST mock
@@ -113,7 +115,7 @@ flutter build apk --release
 flutter build ios --debug --no-codesign
 ```
 
-Unit tests cover persistent offline storage, retries and saved deadlines, reconnection, overlapping upload triggers, permanent rejections, acknowledgements, captive portals, fallback internet probes, on-device HTTP mock acceptance/replay, simulation cadence/cancellation, independent UI updates and native settings. The install-and-run integration test verifies internet-gated synchronization to the automatically started phone mock. The simulation integration test checks the real timer, offline storage, upload and Stop without GPS permission.
+Unit tests cover persistent offline storage, retries and saved deadlines, reconnection, overlapping upload triggers, permanent rejections, acknowledgements, captive portals, fallback internet probes, on-device HTTP mock acceptance/replay, simulation cadence/cancellation, independent UI updates and native settings. The install-and-run integration test verifies internet-gated synchronization to the automatically started phone mock. The periodic-mode emulator test checks known native GPS fixes, stationary samples, movement, offline storage, upload and Stop. See the emulator preparation instructions before running it.
 
 The optional [native Android emulator check](docs/android-emulator-check.md) exercises actual GPS callbacks while minimized and screen-off, then Stop and reconnection. These Android checks do not establish iPhone runtime behavior. Physical iPhone screen-lock behavior has not been tested. GitHub Actions validates Android analysis/tests/build and an unsigned iOS build on macOS.
 
@@ -123,12 +125,12 @@ The [Android screen capture](docs/android-tracking.png) shows the minimal UI usi
 
 The [short Android recording](docs/demo.mp4) shows the installed release app capturing a point with Wi-Fi and mobile data disabled, automatically synchronizing after connectivity returns, and stopping tracking. The offline demo switch remains off throughout; coordinates come from the emulator's native GPS provider.
 
-The [simulation recording](docs/simulation-demo.mp4) shows the installed app generating and uploading new coordinates every three seconds without GPS permission, then stopping generation.
+The [simulation recording](docs/simulation-demo.mp4) shows the installed app sampling and uploading native GPS coordinates every three seconds, then stopping tracking.
 
 Verification performed for this refactor:
 
-- Static analysis passed and all 24 tests passed, including three-second simulation, mode selection and component-scoped UI updates.
+- Static analysis passed and all 26 tests passed, including real-coordinate sampling, native GPS settings, mode selection and component-scoped UI updates.
 - The native Android integration check passed while minimized and screen-off; Stop removed the foreground service.
 - The normal release APK built and passed the real network outage/recovery check with no external mock server.
 - The installed-app integration test confirmed the default loopback API and internet-gated synchronization. Physical iPhone screen-lock behavior remains untested.
-- The simulation integration test passed with the real three-second timer, offline SQLite records, REST acceptance after reconnecting, and no new points after Stop.
+- The periodic GPS emulator test passed with stationary and moved native fixes, offline SQLite records, REST acceptance after reconnecting, and cancellation of both native GPS and timer on Stop.
