@@ -25,10 +25,17 @@ void main() {
         expect(points[1].latitude, greaterThan(points[0].latitude));
         expect(points[1].longitude, greaterThan(points[0].longitude));
         expect(points.every((point) => point.capturedAt.isUtc), isTrue);
+        // SQLite's asyncMap pauses its receiver, but capture must stay on time.
+        subscription.pause();
+        clock.elapse(const Duration(seconds: 6));
+        expect(points, hasLength(2));
+        subscription.resume();
+        clock.flushMicrotasks();
+        expect(points, hasLength(4));
         unawaited(subscription.cancel());
         clock.flushMicrotasks();
         clock.elapse(const Duration(seconds: 9));
-        expect(points, hasLength(2));
+        expect(points, hasLength(4));
       });
     },
   );

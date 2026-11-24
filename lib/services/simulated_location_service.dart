@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:uuid/uuid.dart';
 
 import '../models/location_record.dart';
@@ -17,15 +19,30 @@ class SimulatedLocationService implements LocationSource {
   /// Emits the first point after three seconds, then another every three seconds.
   /// Cancelling the subscription stops the timer. The route loops every 100
   /// points to keep coordinates in a small area, with a new ID on every tick.
+  /// The timer keeps running while asyncMap saves a previous point to SQLite;
+  /// the stream buffers those new points until the receiver is ready.
   @override
-  Stream<LocationRecord> start() =>
-      Stream.periodic(const Duration(seconds: 3), (tick) {
-        final offset = (tick % 100) * 0.0001;
-        return LocationRecord(
-          id: const Uuid().v4(),
-          latitude: 12.9716 + offset,
-          longitude: 77.5946 + offset,
-          capturedAt: DateTime.now().toUtc(),
-        );
-      });
+  Stream<LocationRecord> start() {
+    late Timer timer;
+    late StreamController<LocationRecord> locations;
+    var tick = 0;
+    locations = StreamController<LocationRecord>(
+      onListen: () {
+        timer = Timer.periodic(const Duration(seconds: 3), (_) {
+          final offset = (tick % 100) * 0.0001;
+          tick++;
+          locations.add(
+            LocationRecord(
+              id: const Uuid().v4(),
+              latitude: 12.9716 + offset,
+              longitude: 77.5946 + offset,
+              capturedAt: DateTime.now().toUtc(),
+            ),
+          );
+        });
+      },
+      onCancel: () => timer.cancel(),
+    );
+    return locations.stream;
+  }
 }
