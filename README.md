@@ -114,3 +114,12 @@ The optional [native Android emulator check](docs/android-emulator-check.md) exe
 On Windows, `kotlin.incremental=false` avoids Kotlin's cross-drive Pub-cache build error. Signing for stores, authentication, batching and retention cleanup are beyond this focused demo.
 
 The [Android screen capture](docs/android-tracking.png) shows the minimal UI using emulator locations.
+
+The [short Android recording](docs/demo.mp4) shows the installed release app capturing a point with Wi-Fi and mobile data disabled, automatically synchronizing after connectivity returns, and stopping tracking. The offline demo switch remains off throughout; coordinates come from the emulator's native GPS provider.
+
+Verification performed for this refactor:
+
+- Static analysis passed and all 20 unit tests passed.
+- The native Android integration check passed while minimized and screen-off; Stop removed the foreground service.
+- The normal release APK built and passed the real network outage/recovery check with no external mock server.
+- The installed-app integration test confirmed the default loopback API and internet-gated synchronization. Physical iPhone screen-lock behavior remains untested.
