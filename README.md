@@ -121,6 +121,8 @@ The [Android screen capture](docs/android-tracking.png) shows the minimal UI usi
 
 The [short Android recording](docs/demo.mp4) shows the installed release app capturing a point with Wi-Fi and mobile data disabled, automatically synchronizing after connectivity returns, and stopping tracking. The offline demo switch remains off throughout; coordinates come from the emulator's native GPS provider.
 
+The [simulation recording](docs/simulation-demo.mp4) shows the installed app generating and uploading new coordinates every three seconds without GPS permission, then stopping generation.
+
 Verification performed for this refactor:
 
 - Static analysis passed and all 22 unit tests passed, including three-second simulation and mode selection.
