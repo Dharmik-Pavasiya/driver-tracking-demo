@@ -166,6 +166,18 @@ References: [Geolocator](https://pub.dev/packages/geolocator), [Android location
 
 ## Validation
 
+### Offline storage, synchronization and retry tests
+
+[sync_service_test.dart](test/sync_service_test.dart) includes six automated tests covering offline SQLite persistence, synchronization, failed uploads, persisted retry deadlines, transport timeouts and duplicate prevention. All six tests passed in the verified run.
+
+Run this suite from the project root:
+
+```sh
+flutter test test/sync_service_test.dart --reporter expanded
+```
+
+### Complete checks
+
 ```sh
 dart format --output=none --set-exit-if-changed lib test integration_test
 flutter analyze
