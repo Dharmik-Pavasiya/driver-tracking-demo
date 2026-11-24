@@ -15,15 +15,18 @@ class TrackingController extends GetxController with WidgetsBindingObserver {
   TrackingController({
     required this.repository,
     required this.source,
+    required this.simulatedSource,
     required this.api,
     required this.sync,
   });
   final LocationRepository repository;
   final LocationSource source;
+  final LocationSource simulatedSource;
   final RestLocationApi api;
   final SyncService sync;
   final isStarting = false.obs;
   final isTracking = false.obs;
+  final simulateLocation = false.obs;
   final errorMessage = RxnString();
   final uploadFailure = DemoFailure.none.obs;
   StreamSubscription<void>? _locations;
@@ -40,7 +43,7 @@ class TrackingController extends GetxController with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  /// Requests permission once, then starts the native foreground/background stream.
+  /// Starts the selected source; both modes share the same save/upload callback.
   Future<void> startTracking() async {
     if (_closed ||
         isStarting.value ||
@@ -51,9 +54,10 @@ class TrackingController extends GetxController with WidgetsBindingObserver {
     isStarting.value = true;
     errorMessage.value = null;
     try {
-      await source.prepare();
+      final selectedSource = simulateLocation.value ? simulatedSource : source;
+      await selectedSource.prepare();
       if (_closed) return;
-      _locations = source
+      _locations = selectedSource
           .start()
           .asyncMap(_saveLocation)
           .listen(
@@ -78,11 +82,17 @@ class TrackingController extends GetxController with WidgetsBindingObserver {
     unawaited(sync.synchronize());
   }
 
-  /// Cancellation also stops Android's foreground location notification/service.
+  /// Cancels the simulation timer or the native GPS service and notification.
   Future<void> stopTracking() async {
     await _locations?.cancel();
     _locations = null;
     isTracking.value = false;
+  }
+
+  /// Choose the source before Start so an active journey cannot change its mode.
+  void setLocationSimulation(bool value) {
+    if (isStarting.value || isTracking.value) return;
+    simulateLocation.value = value;
   }
 
   /// The switch affects this demo only; switching back also checks real internet.

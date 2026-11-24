@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../data/location_repository.dart';
 import '../../../services/location_api.dart';
 import '../../../services/location_service.dart';
+import '../../../services/simulated_location_service.dart';
 import '../../../services/sync_service.dart';
 import '../controller/tracking_controller.dart';
 
@@ -14,6 +15,7 @@ class TrackingBinding extends Bindings {
     () => TrackingController(
       repository: Get.find<LocationRepository>(),
       source: Get.find<LocationSource>(),
+      simulatedSource: Get.find<SimulatedLocationService>(),
       api: Get.find<RestLocationApi>(),
       sync: Get.find<SyncService>(),
     ),

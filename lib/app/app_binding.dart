@@ -7,6 +7,7 @@ import '../services/connectivity_service.dart';
 import '../services/location_api.dart';
 import '../services/location_service.dart';
 import '../services/mock_api_service.dart';
+import '../services/simulated_location_service.dart';
 import '../services/sync_service.dart';
 
 /// Creates shared services once; screen bindings only create screen controllers.
@@ -25,6 +26,7 @@ class AppBinding extends Bindings {
     final connection = Get.put(ConnectivityService(), permanent: true);
     final api = Get.put(RestLocationApi(baseUrl: apiUrl), permanent: true);
     Get.put<LocationSource>(DeviceLocationService(), permanent: true);
+    Get.put(const SimulatedLocationService(), permanent: true);
     final sync = Get.put(
       SyncService(repository: repository, api: api, connection: connection),
       permanent: true,

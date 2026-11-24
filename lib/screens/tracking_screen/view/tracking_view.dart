@@ -65,6 +65,15 @@ class TrackingView extends GetView<TrackingController> {
           const Text(AppStrings.demoControls),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: const Text(AppStrings.simulateLocation),
+            subtitle: const Text(AppStrings.simulationHint),
+            value: controller.simulateLocation.value,
+            onChanged: busy || controller.isTracking.value
+                ? null
+                : controller.setLocationSimulation,
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: const Text(AppStrings.simulateOffline),
             value: sync.connection.simulateOffline.value,
             onChanged: controller.setOfflineMode,

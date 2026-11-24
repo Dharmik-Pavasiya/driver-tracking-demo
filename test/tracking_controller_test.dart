@@ -18,7 +18,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Gives the controller manual GPS fixes, without device permission dialogs.
 class TestLocationSource implements LocationSource {
-  final points = StreamController<LocationRecord>();
+  final points = StreamController<LocationRecord>.broadcast();
   Completer<void>? permission;
   int starts = 0;
   @override
@@ -47,6 +47,7 @@ void main() {
   late RestLocationApi api;
   late SyncService sync;
   late TestLocationSource source;
+  late TestLocationSource simulatedSource;
   late TrackingController controller;
   late StreamController<List<ConnectivityResult>> events;
   late bool connected;
@@ -83,9 +84,11 @@ void main() {
     sync = SyncService(repository: repository, api: api, connection: network);
     await sync.startAutomaticSync();
     source = TestLocationSource();
+    simulatedSource = TestLocationSource();
     controller = TrackingController(
       repository: repository,
       source: source,
+      simulatedSource: simulatedSource,
       api: api,
       sync: sync,
     );
@@ -96,6 +99,7 @@ void main() {
     await sync.close();
     await network.close();
     await source.points.close();
+    await simulatedSource.points.close();
     await events.close();
     api.close();
     await mock.close();
@@ -131,6 +135,34 @@ void main() {
       source.permission!.complete();
       await start;
       expect(source.starts, 1);
+    },
+  );
+  test(
+    'simulation uses the same offline queue and locks the mode until Stop',
+    () async {
+      controller.setLocationSimulation(true);
+      await controller.startTracking();
+      expect(source.starts, 0);
+      expect(simulatedSource.starts, 1);
+      controller.setLocationSimulation(false);
+      expect(controller.simulateLocation.value, isTrue);
+      simulatedSource.points.add(
+        LocationRecord(
+          id: 'simulated',
+          latitude: 12.9716,
+          longitude: 77.5946,
+          capturedAt: DateTime.utc(2026),
+        ),
+      );
+      await waitUntil(() => sync.pending == 1);
+      expect(await repository.mockRecords(), isEmpty);
+      connected = true;
+      events.add([ConnectivityResult.wifi]);
+      await waitUntil(() => sync.synced == 1);
+      expect((await repository.mockRecords()).single['id'], 'simulated');
+      await controller.stopTracking();
+      controller.setLocationSimulation(false);
+      expect(controller.simulateLocation.value, isFalse);
     },
   );
 }
