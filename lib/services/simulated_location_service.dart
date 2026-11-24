@@ -9,7 +9,7 @@ import 'location_service.dart';
 /// Coordinates come only from the injected GPS source; no route is generated.
 /// The timer runs while the OS gives the app execution time.
 class SimulatedLocationService implements LocationSource {
-  /// Shares the app's native location source, or accepts a controlled GPS in tests.
+  /// Accepts the app's configured native GPS adapter, or controlled GPS in tests.
   const SimulatedLocationService({required this.source});
   final LocationSource source;
 
