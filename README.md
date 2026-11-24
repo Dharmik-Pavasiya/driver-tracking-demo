@@ -76,6 +76,8 @@ Start reading `TrackingController.startTracking`, then `_saveLocation`, `Locatio
 
 SQLite owns the durable data. `SyncService.records` is a current Rx copy for the view, with derived counts. `Obx` rebuilds when these fields change. The controller handles screen actions; synchronization owns one retry timer and its network listener. SQL stays in the repository, HTTP in the API class, and native settings in the location service. Application classes and methods have documentation comments. A separate local workflow guide is deliberately excluded from Git.
 
+`TrackingView.build` assembles the app bar and body through widget methods in the same screen file. Each reactive component has its own `Obx`, so an upload error updates its message without rebuilding Start/Stop or the list container. Saved-record changes update the coordinates, counts and recent-record section. All handwritten Dart files are under 500 lines.
+
 ## Internet checks and delivery
 
 `connectivity_plus` reports available network transports. The service also requires HTTP 204 from an HTTPS probe at `www.gstatic.com/generate_204`, falling back to `cp.cloudflare.com/generate_204`. Each request has a three-second timeout. A Wi-Fi connection with captive-portal HTML, or failure of both probes, remains offline. Probes contain no location data. A network that blocks both providers may delay uploads even when other sites work.
@@ -111,7 +113,7 @@ flutter build apk --release
 flutter build ios --debug --no-codesign
 ```
 
-Unit tests cover persistent offline storage, retries and saved deadlines, reconnection, overlapping upload triggers, permanent rejections, acknowledgements, captive portals, fallback internet probes, on-device HTTP mock acceptance/replay, simulation cadence/cancellation and native settings. The install-and-run integration test verifies internet-gated synchronization to the automatically started phone mock. The simulation integration test checks the real timer, offline storage, upload and Stop without GPS permission.
+Unit tests cover persistent offline storage, retries and saved deadlines, reconnection, overlapping upload triggers, permanent rejections, acknowledgements, captive portals, fallback internet probes, on-device HTTP mock acceptance/replay, simulation cadence/cancellation, independent UI updates and native settings. The install-and-run integration test verifies internet-gated synchronization to the automatically started phone mock. The simulation integration test checks the real timer, offline storage, upload and Stop without GPS permission.
 
 The optional [native Android emulator check](docs/android-emulator-check.md) exercises actual GPS callbacks while minimized and screen-off, then Stop and reconnection. These Android checks do not establish iPhone runtime behavior. Physical iPhone screen-lock behavior has not been tested. GitHub Actions validates Android analysis/tests/build and an unsigned iOS build on macOS.
 
@@ -125,7 +127,7 @@ The [simulation recording](docs/simulation-demo.mp4) shows the installed app gen
 
 Verification performed for this refactor:
 
-- Static analysis passed and all 22 unit tests passed, including three-second simulation and mode selection.
+- Static analysis passed and all 24 tests passed, including three-second simulation, mode selection and component-scoped UI updates.
 - The native Android integration check passed while minimized and screen-off; Stop removed the foreground service.
 - The normal release APK built and passed the real network outage/recovery check with no external mock server.
 - The installed-app integration test confirmed the default loopback API and internet-gated synchronization. Physical iPhone screen-lock behavior remains untested.
