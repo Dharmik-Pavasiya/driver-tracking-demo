@@ -1,42 +1,34 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:get/get.dart';
 
-import '../network/api_provider/location_api.dart';
-import '../network/connectivity/network_connectivity.dart';
-import '../screens/tracking_screen/data/location_repository.dart';
-import '../screens/tracking_screen/service/location_service.dart';
-import '../screens/tracking_screen/service/sync_service.dart';
+import '../data/location_repository.dart';
+import '../services/connectivity_service.dart';
+import '../services/location_api.dart';
+import '../services/location_service.dart';
+import '../services/mock_api_service.dart';
+import '../services/sync_service.dart';
 
-/// Registers shared dependencies, following the supplied GetX template.
+/// Creates shared services once; screen bindings only create screen controllers.
 class AppBinding extends Bindings {
-  /// Accepts the database repository initialized by main.
-  AppBinding(this.repository);
+  /// Reuses startup resources instead of opening a second database or mock.
+  AppBinding(this.repository, this.mock, this.apiUrl);
   final LocationRepository repository;
+  final MockApiService mock;
+  final String apiUrl;
 
-  /// Creates one network listener, API client, native GPS adapter and sync worker.
+  /// Registers shared dependencies for use by any screen binding.
   @override
   void dependencies() {
-    Get.put<LocationRepository>(repository, permanent: true);
-    Get.put<NetworkConnectivity>(NetworkConnectivity(), permanent: true);
-    final configuredUrl = const String.fromEnvironment('API_BASE_URL');
-    final defaultUrl = Platform.isAndroid
-        ? 'http://10.0.2.2:8081'
-        : 'http://localhost:8081';
-    Get.put<RestLocationApi>(
-      RestLocationApi(
-        baseUrl: configuredUrl.isEmpty ? defaultUrl : configuredUrl,
-      ),
-      permanent: true,
-    );
+    Get.put(repository, permanent: true);
+    Get.put(mock, permanent: true);
+    final connection = Get.put(ConnectivityService(), permanent: true);
+    final api = Get.put(RestLocationApi(baseUrl: apiUrl), permanent: true);
     Get.put<LocationSource>(DeviceLocationService(), permanent: true);
-    Get.put<SyncService>(
-      SyncService(
-        repository: repository,
-        api: Get.find<RestLocationApi>(),
-        isOnline: () => Get.find<NetworkConnectivity>().online,
-      ),
+    final sync = Get.put(
+      SyncService(repository: repository, api: api, connection: connection),
       permanent: true,
     );
+    unawaited(sync.startAutomaticSync());
   }
 }

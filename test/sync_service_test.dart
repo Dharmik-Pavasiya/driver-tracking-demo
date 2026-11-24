@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:driver_tracking_demo/screens/tracking_screen/data/location_repository.dart';
-import 'package:driver_tracking_demo/screens/tracking_screen/data/location_record.dart';
-import 'package:driver_tracking_demo/network/api_provider/location_api.dart';
-import 'package:driver_tracking_demo/screens/tracking_screen/service/sync_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:driver_tracking_demo/services/connectivity_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import 'package:driver_tracking_demo/data/location_repository.dart';
+import 'package:driver_tracking_demo/models/location_record.dart';
+import 'package:driver_tracking_demo/services/location_api.dart';
+import 'package:driver_tracking_demo/services/sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -39,6 +44,7 @@ void main() {
   late LocationRepository repository;
   late FakeApi api;
   late SyncService sync;
+  late ConnectivityService connection;
   late bool online;
   late DateTime clock;
 
@@ -51,16 +57,24 @@ void main() {
     api = FakeApi();
     online = false;
     clock = DateTime.utc(2026, 1, 1);
+    connection = ConnectivityService(
+      transport: () async => [
+        online ? ConnectivityResult.wifi : ConnectivityResult.none,
+      ],
+      changes: const Stream.empty(),
+      client: MockClient((_) async => http.Response('', 204)),
+    );
     sync = SyncService(
       repository: repository,
       api: api,
-      isOnline: () => online,
+      connection: connection,
       now: () => clock,
-      backoff: (attempt) => Duration(seconds: 2 * (1 << (attempt - 1))),
+      retryDelay: (attempt) => Duration(seconds: 2 * (1 << (attempt - 1))),
     );
   });
   tearDown(() async {
-    sync.dispose();
+    await connection.close();
+    await sync.close();
     await repository.database.close();
     await directory.delete(recursive: true);
   });
@@ -77,11 +91,11 @@ void main() {
       );
       await repository.initialize();
       expect((await repository.all()).single.status, UploadStatus.pending);
-      sync.dispose();
+      await sync.close();
       sync = SyncService(
         repository: repository,
         api: api,
-        isOnline: () => online,
+        connection: connection,
       );
       online = true;
       await sync.synchronize();
@@ -115,13 +129,13 @@ void main() {
       repository = LocationRepository(
         await databaseFactoryFfi.openDatabase('${directory.path}/outbox.db'),
       );
-      sync.dispose();
+      await sync.close();
       sync = SyncService(
         repository: repository,
         api: api,
-        isOnline: () => online,
+        connection: connection,
         now: () => clock,
-        backoff: (_) => const Duration(seconds: 4),
+        retryDelay: (_) => const Duration(seconds: 4),
       );
       await sync.synchronize();
       expect(api.calls, 1);

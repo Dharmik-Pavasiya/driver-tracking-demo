@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../../screens/tracking_screen/data/location_record.dart';
+import '../models/location_record.dart';
 
 /// Describes an API failure and whether automatic retry can resolve it.
 class UploadException implements Exception {

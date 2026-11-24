@@ -24,24 +24,25 @@ void main() {
     await app.main();
     await tester.pumpAndSettle();
     final controller = Get.find<TrackingController>();
-    await waitFor(() => controller.isReady.value);
-    controller.network.setSimulateOffline(true);
+    await waitFor(() => controller.sync.isReady.value);
+    await controller.setOfflineMode(true);
     await controller.startTracking();
     expect(controller.isTracking.value, isTrue);
     // The host sends a fresh fix after the native subscription is established.
     debugPrint('NATIVE_TRACKING_STARTED');
     await waitFor(
-      () => controller.pending > 0 || controller.errorMessage.value != null,
+      () =>
+          controller.sync.pending > 0 || controller.errorMessage.value != null,
     );
     expect(controller.errorMessage.value, isNull);
-    expect(controller.pending, greaterThan(0));
-    final earlierIds = controller.records.map((row) => row.id).toSet();
+    expect(controller.sync.pending, greaterThan(0));
+    final earlierIds = controller.sync.records.map((row) => row.id).toSet();
 
     // The host now minimizes the emulator, turns its screen off, and injects
     // two known native GPS points. No Flutter frames are pumped during this wait.
     debugPrint('NATIVE_BACKGROUND_STAGE');
     await Future<void>.delayed(const Duration(seconds: 35));
-    final backgroundRows = controller.records.where(
+    final backgroundRows = controller.sync.records.where(
       (row) => !earlierIds.contains(row.id),
     );
     expect(
@@ -58,10 +59,10 @@ void main() {
     debugPrint('NATIVE_SERVICE_STOPPED');
     // Leave time for the host to inspect the service before test APK cleanup.
     await Future<void>.delayed(const Duration(seconds: 4));
-    controller.network.setSimulateOffline(false);
+    await controller.setOfflineMode(false);
     await controller.sync.synchronize();
-    await controller.refreshRecords();
-    expect(controller.pending, 0);
+    await controller.sync.loadRecords();
+    expect(controller.sync.pending, 0);
     debugPrint('NATIVE_TRACKING_TEST_COMPLETE');
     await tester.pumpAndSettle();
     await controller.closeResources();

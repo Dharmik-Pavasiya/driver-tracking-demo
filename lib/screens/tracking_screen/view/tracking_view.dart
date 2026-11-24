@@ -1,91 +1,89 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../network/api_provider/location_api.dart';
+import '../../../app/app_strings.dart';
+import '../../../models/location_record.dart';
+import '../../../services/location_api.dart';
 import '../controller/tracking_controller.dart';
-import '../data/location_record.dart';
 
-/// One plain mobile screen: current fix, controls, counts and recent locations.
-/// GetView retrieves the bound controller; Obx rebuilds when its Rx fields change.
+/// Plain widgets display GetX state; saving and uploading stay in their services.
 class TrackingView extends GetView<TrackingController> {
-  /// Creates the tracking route's view without owning services or business logic.
+  /// GetView obtains the controller registered by TrackingBinding.
   const TrackingView({super.key});
 
-  /// Builds standard Material controls; no maps, illustrations or dashboard cards.
+  /// Rebuilds the plain controls and recent points when their Rx values change.
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Driver Location')),
+    appBar: AppBar(title: const Text(AppStrings.title)),
     body: Obx(() {
-      final latest = controller.latest;
-      final error = controller.errorMessage.value;
+      final sync = controller.sync;
+      final point = controller.latest;
+      final error = controller.errorMessage.value ?? sync.errorMessage.value;
+      final busy = !sync.isReady.value || controller.isStarting.value;
+      final buttonText = controller.isStarting.value
+          ? AppStrings.permission
+          : controller.isTracking.value
+          ? AppStrings.stop
+          : AppStrings.start;
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            controller.network.online ? 'Network: online' : 'Network: offline',
-          ),
+          Text(sync.connection.online ? AppStrings.online : AppStrings.offline),
           const SizedBox(height: 12),
           Text(
             controller.isTracking.value
-                ? 'Tracking active'
-                : 'Tracking stopped',
+                ? AppStrings.tracking
+                : AppStrings.stopped,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
-            latest == null
-                ? 'No location captured yet.'
-                : '${latest.latitude.toStringAsFixed(6)}, ${latest.longitude.toStringAsFixed(6)}',
+            point == null
+                ? AppStrings.noLocation
+                : '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: !controller.isReady.value || controller.isStarting.value
+            onPressed: busy
                 ? null
-                : controller.isTracking.value
-                ? controller.stopTracking
-                : controller.startTracking,
-            child: Text(
-              controller.isStarting.value
-                  ? 'Requesting permission…'
-                  : controller.isTracking.value
-                  ? 'Stop tracking'
-                  : 'Start tracking',
-            ),
+                : () {
+                    if (controller.isTracking.value) {
+                      controller.stopTracking();
+                    } else {
+                      controller.startTracking();
+                    }
+                  },
+            child: Text(buttonText),
           ),
           const SizedBox(height: 16),
-          Text(
-            'Pending: ${controller.pending}   Synced: ${controller.synced}   Blocked: ${controller.blocked}',
-          ),
-          if (controller.isSyncing.value)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('Uploading locations…'),
-            ),
+          Text(AppStrings.counts(sync.pending, sync.synced, sync.blocked)),
+          if (sync.isSyncing.value && sync.pending > 0)
+            const Text(AppStrings.uploading),
           if (error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(error, style: const TextStyle(color: Colors.red)),
-            ),
+            Text(error, style: const TextStyle(color: Colors.red)),
           const Divider(height: 32),
-          const Text('Demo controls'),
+          const Text(AppStrings.demoControls),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Simulate offline'),
-            value: controller.network.simulateOffline.value,
-            onChanged: controller.network.setSimulateOffline,
+            title: const Text(AppStrings.simulateOffline),
+            value: sync.connection.simulateOffline.value,
+            onChanged: controller.setOfflineMode,
           ),
           DropdownButtonFormField<DemoFailure>(
             initialValue: controller.uploadFailure.value,
-            decoration: const InputDecoration(labelText: 'Mock API'),
+            decoration: const InputDecoration(labelText: AppStrings.mockApi),
             items: const [
-              DropdownMenuItem(value: DemoFailure.none, child: Text('Healthy')),
+              DropdownMenuItem(
+                value: DemoFailure.none,
+                child: Text(AppStrings.healthy),
+              ),
               DropdownMenuItem(
                 value: DemoFailure.beforeCommit,
-                child: Text('Fail before saving'),
+                child: Text(AppStrings.failBefore),
               ),
               DropdownMenuItem(
                 value: DemoFailure.afterCommit,
-                child: Text('Fail after saving'),
+                child: Text(AppStrings.failAfter),
               ),
             ],
             onChanged: (value) {
@@ -93,19 +91,13 @@ class TrackingView extends GetView<TrackingController> {
             },
           ),
           TextButton(
-            onPressed: controller.network.online && !controller.isSyncing.value
-                ? controller.retryNow
-                : null,
-            child: const Text('Retry pending uploads'),
+            onPressed: sync.isSyncing.value ? null : sync.retryNow,
+            child: const Text(AppStrings.retry),
           ),
           const Divider(height: 24),
-          const Text('Recent locations'),
-          if (controller.records.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text('Saved points will appear here.'),
-            ),
-          ...controller.records
+          const Text(AppStrings.recent),
+          if (sync.records.isEmpty) const Text(AppStrings.empty),
+          ...sync.records
               .take(10)
               .map(
                 (row) => ListTile(
@@ -114,8 +106,7 @@ class TrackingView extends GetView<TrackingController> {
                     '${row.latitude.toStringAsFixed(6)}, ${row.longitude.toStringAsFixed(6)}',
                   ),
                   subtitle: Text(
-                    '${row.capturedAt.toLocal().toString().split('.').first}\n'
-                    '${row.attempts} attempts${row.lastError == null ? '' : ' • ${row.lastError}'}',
+                    '${row.capturedAt.toLocal().toString().split('.').first}\n${row.attempts} attempts',
                   ),
                   trailing: Text(
                     row.status.name,

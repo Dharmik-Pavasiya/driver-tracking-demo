@@ -33,6 +33,15 @@ class LocationRecord {
     'capturedAt': capturedAt.toUtc().toIso8601String(),
   };
 
+  /// Reads a REST payload; invalid or incomplete JSON is rejected by the mock.
+  factory LocationRecord.fromPayload(Map<String, dynamic> json) =>
+      LocationRecord(
+        id: json['id'] as String,
+        latitude: (json['latitude'] as num).toDouble(),
+        longitude: (json['longitude'] as num).toDouble(),
+        capturedAt: DateTime.parse(json['capturedAt'] as String),
+      );
+
   /// Includes retry metadata when writing this record into SQLite.
   Map<String, Object?> toRow() => {
     ...toPayload(),

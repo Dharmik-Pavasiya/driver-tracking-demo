@@ -1,6 +1,6 @@
 # Optional native background check
 
-This integration test uses the actual Geolocator service, not a fake GPS stream. It targets a disposable Android emulator; no physical device permissions or locations are changed. Start the mock API first.
+This integration test uses the actual Geolocator service, not a fake GPS stream. It targets a disposable Android emulator; no physical device permissions or locations are changed. The installed app starts its own mock API automatically. Keep actual internet available for the final synchronization step.
 
 1. Build and install the debug app, then grant its emulator permissions:
 
@@ -14,7 +14,13 @@ adb -s emulator-5554 emu geo fix 77.5946 12.9716
 flutter test integration_test/native_tracking_test.dart -d emulator-5554 --reporter expanded
 ```
 
-2. When the test prints `NATIVE_BACKGROUND_STAGE`, use a second terminal to minimize the app and send a fix:
+2. When the test prints `NATIVE_TRACKING_STARTED`, send the initial fix again after the native GPS subscription is ready:
+
+```sh
+adb -s emulator-5554 emu geo fix 77.5946 12.9716
+```
+
+3. When the test prints `NATIVE_BACKGROUND_STAGE`, use a second terminal to minimize the app and send a fix:
 
 ```sh
 adb -s emulator-5554 shell input keyevent KEYCODE_HOME

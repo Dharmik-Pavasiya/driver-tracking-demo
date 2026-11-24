@@ -32,8 +32,6 @@
     <array>
         <string>location</string>
     </array>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Upload saved tracking points to the assessment mock API on your local network.</string>
     <key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>

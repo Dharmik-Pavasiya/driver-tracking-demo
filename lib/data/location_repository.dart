@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:sqflite_common/sqlite_api.dart';
 
-import 'location_record.dart';
+import '../models/location_record.dart';
+
+/// The phone mock records whether an ID is new, already accepted, or conflicting.
+enum MockResult { created, duplicate, conflict }
 
 /// SQLite is the source of truth. Each mutation targets one row, so a GPS
 /// insert cannot be overwritten by an upload acknowledgement.
@@ -27,6 +32,12 @@ class LocationRepository {
     await database.execute('''
       CREATE INDEX IF NOT EXISTS pending_due
       ON locations(status, nextAttemptAt)
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS mock_locations (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL
+      )
     ''');
   }
 
@@ -105,4 +116,41 @@ class LocationRepository {
       whereArgs: ['synced'],
     );
   }
+
+  /// Saves mock-server acceptance separately from the app's pending outbox.
+  /// A transaction keeps concurrent retries from accepting the same ID twice.
+  Future<MockResult> acceptMock(LocationRecord record) => database.transaction((
+    txn,
+  ) async {
+    final payload = jsonEncode(record.toPayload());
+    final existing = await txn.query(
+      'mock_locations',
+      where: 'id = ?',
+      whereArgs: [record.id],
+    );
+    if (existing.isNotEmpty) {
+      return existing.first['payload'] == payload
+          ? MockResult.duplicate
+          : MockResult.conflict;
+    }
+    await txn.insert('mock_locations', {'id': record.id, 'payload': payload});
+    return MockResult.created;
+  });
+
+  /// Lets the mock apply simulated failures only to new IDs, never to replays.
+  Future<bool> mockContains(String id) async => (await database.query(
+    'mock_locations',
+    columns: ['id'],
+    where: 'id = ?',
+    whereArgs: [id],
+  )).isNotEmpty;
+
+  /// Supplies the mock's GET endpoint and duplicate-verification tests.
+  Future<List<Map<String, dynamic>>> mockRecords() async =>
+      (await database.query('mock_locations'))
+          .map(
+            (row) =>
+                jsonDecode(row['payload'] as String) as Map<String, dynamic>,
+          )
+          .toList();
 }

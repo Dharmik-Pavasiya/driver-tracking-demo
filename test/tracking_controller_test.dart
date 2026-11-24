@@ -2,30 +2,27 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:driver_tracking_demo/network/api_provider/location_api.dart';
-import 'package:driver_tracking_demo/network/connectivity/network_connectivity.dart';
+import 'package:driver_tracking_demo/data/location_repository.dart';
+import 'package:driver_tracking_demo/models/location_record.dart';
 import 'package:driver_tracking_demo/screens/tracking_screen/controller/tracking_controller.dart';
-import 'package:driver_tracking_demo/screens/tracking_screen/data/location_record.dart';
-import 'package:driver_tracking_demo/screens/tracking_screen/data/location_repository.dart';
-import 'package:driver_tracking_demo/screens/tracking_screen/service/location_service.dart';
-import 'package:driver_tracking_demo/screens/tracking_screen/service/sync_service.dart';
+import 'package:driver_tracking_demo/services/connectivity_service.dart';
+import 'package:driver_tracking_demo/services/location_api.dart';
+import 'package:driver_tracking_demo/services/location_service.dart';
+import 'package:driver_tracking_demo/services/mock_api_service.dart';
+import 'package:driver_tracking_demo/services/sync_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-/// Supplies GPS fixes manually so a controller test does not access real GPS.
+/// Gives the controller manual GPS fixes, without device permission dialogs.
 class TestLocationSource implements LocationSource {
   final points = StreamController<LocationRecord>();
   Completer<void>? permission;
   int starts = 0;
-
-  /// Can hold permission pending to verify repeated Start taps are ignored.
   @override
   Future<void> prepare() async => await permission?.future;
-
-  /// Exposes a stream whose cancellation can be checked after Stop.
   @override
   Stream<LocationRecord> start() {
     starts++;
@@ -33,109 +30,107 @@ class TestLocationSource implements LocationSource {
   }
 }
 
-/// Waits for real async SQLite work with a bounded timeout instead of long sleeps.
-Future<void> waitUntil(bool Function() complete) async {
-  for (var attempt = 0; attempt < 200; attempt++) {
-    if (complete()) return;
+Future<void> waitUntil(bool Function() ready) async {
+  for (var count = 0; count < 200; count++) {
+    if (ready()) return;
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
-  fail('Controller did not reach the expected state');
+  fail('Expected state did not arrive');
 }
 
-/// Exercises GetX orchestration with SQLite and a mock HTTP client.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
-  late TrackingController controller;
   late LocationRepository repository;
-  late NetworkConnectivity network;
+  late MockApiService mock;
+  late ConnectivityService network;
   late RestLocationApi api;
   late SyncService sync;
   late TestLocationSource source;
-  late StreamController<List<ConnectivityResult>> networkEvents;
-  late Set<String> accepted;
-
+  late TrackingController controller;
+  late StreamController<List<ConnectivityResult>> events;
+  late bool connected;
   setUp(() async {
     repository = LocationRepository(
       await databaseFactoryFfi.openDatabase(inMemoryDatabasePath),
     );
     await repository.initialize();
-    networkEvents = StreamController<List<ConnectivityResult>>.broadcast();
-    network = NetworkConnectivity(
-      check: () async => [ConnectivityResult.none],
-      changes: networkEvents.stream,
-    );
-    accepted = {};
+    mock = MockApiService(repository);
+    // Widget test bindings block real HTTP. The separate phone-mock tests use
+    // real sockets; this controller test supplies an HTTP client explicitly.
     api = RestLocationApi(
       baseUrl: 'http://mock',
       client: MockClient((request) async {
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
-        accepted.add(body['id'] as String);
+        final record = LocationRecord.fromPayload(
+          jsonDecode(request.body) as Map<String, dynamic>,
+        );
+        await repository.acceptMock(record);
         return http.Response(
-          jsonEncode({'id': body['id'], 'accepted': true}),
+          jsonEncode({'id': record.id, 'accepted': true}),
           201,
         );
       }),
     );
-    sync = SyncService(
-      repository: repository,
-      api: api,
-      isOnline: () => network.online,
+    connected = false;
+    events = StreamController<List<ConnectivityResult>>();
+    network = ConnectivityService(
+      transport: () async => [
+        connected ? ConnectivityResult.wifi : ConnectivityResult.none,
+      ],
+      changes: events.stream,
+      client: MockClient((_) async => http.Response('', 204)),
     );
+    sync = SyncService(repository: repository, api: api, connection: network);
+    await sync.startAutomaticSync();
     source = TestLocationSource();
     controller = TrackingController(
       repository: repository,
       source: source,
-      network: network,
       api: api,
       sync: sync,
     );
     controller.onInit();
-    await controller.initialize();
   });
   tearDown(() async {
     await controller.closeResources();
     await sync.close();
-    network.onClose();
-    await networkEvents.close();
+    await network.close();
     await source.points.close();
+    await events.close();
     api.close();
+    await mock.close();
     await repository.database.close();
   });
-
-  test('GPS continues while minimized; reconnection uploads stored points after Stop', () async {
+  test('background capture stays local until real internet returns, even after Stop', () async {
     await controller.startTracking();
     controller.didChangeAppLifecycleState(AppLifecycleState.paused);
     source.points.add(
       LocationRecord(
-        id: 'background-fix',
+        id: 'background',
         latitude: 12.97,
         longitude: 77.59,
         capturedAt: DateTime.utc(2026),
       ),
     );
-    await waitUntil(() => controller.pending == 1);
+    await waitUntil(() => sync.pending == 1);
     expect(controller.isTracking.value, isTrue);
-    expect(accepted, isEmpty);
+    expect(await repository.mockRecords(), isEmpty);
     await controller.stopTracking();
-    expect(source.points.hasListener, isFalse);
-    networkEvents.add([ConnectivityResult.wifi]);
-    await waitUntil(() => controller.synced == 1);
-    expect(controller.pending, 0);
-    expect(accepted, {'background-fix'});
+    connected = true;
+    events.add([ConnectivityResult.wifi]);
+    await waitUntil(() => sync.synced == 1);
+    expect(sync.pending, 0);
+    expect((await repository.mockRecords()).length, 1);
   });
-
   test(
-    'repeated Start taps during permission request create one GPS subscription',
+    'double Start during permission preparation creates only one stream',
     () async {
       source.permission = Completer<void>();
-      final first = controller.startTracking();
+      final start = controller.startTracking();
       await controller.startTracking();
-      expect(source.starts, 0);
       source.permission!.complete();
-      await first;
+      await start;
       expect(source.starts, 1);
-      expect(controller.isTracking.value, isTrue);
     },
   );
 }

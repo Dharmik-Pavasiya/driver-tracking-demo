@@ -1,25 +1,21 @@
 import 'package:get/get.dart';
 
-import '../../../network/api_provider/location_api.dart';
-import '../../../network/connectivity/network_connectivity.dart';
+import '../../../data/location_repository.dart';
+import '../../../services/location_api.dart';
+import '../../../services/location_service.dart';
+import '../../../services/sync_service.dart';
 import '../controller/tracking_controller.dart';
-import '../data/location_repository.dart';
-import '../service/location_service.dart';
-import '../service/sync_service.dart';
 
-/// Creates the tracking controller when its screen opens.
+/// Connects the tracking screen to the app's existing services.
 class TrackingBinding extends Bindings {
-  /// Injects dependencies explicitly so business logic is easy to test.
+  /// Creates the controller when this screen opens, using existing services.
   @override
-  void dependencies() {
-    Get.lazyPut<TrackingController>(
-      () => TrackingController(
-        repository: Get.find<LocationRepository>(),
-        source: Get.find<LocationSource>(),
-        network: Get.find<NetworkConnectivity>(),
-        api: Get.find<RestLocationApi>(),
-        sync: Get.find<SyncService>(),
-      ),
-    );
-  }
+  void dependencies() => Get.lazyPut(
+    () => TrackingController(
+      repository: Get.find<LocationRepository>(),
+      source: Get.find<LocationSource>(),
+      api: Get.find<RestLocationApi>(),
+      sync: Get.find<SyncService>(),
+    ),
+  );
 }

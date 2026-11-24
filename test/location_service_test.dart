@@ -1,4 +1,4 @@
-import 'package:driver_tracking_demo/screens/tracking_screen/service/location_service.dart';
+import 'package:driver_tracking_demo/services/location_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';

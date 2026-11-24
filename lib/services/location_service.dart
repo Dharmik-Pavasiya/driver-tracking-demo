@@ -3,7 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
-import '../data/location_record.dart';
+import '../models/location_record.dart';
 
 /// The controller needs permission preparation and a stream of location records.
 /// Tests supply a controllable stream instead of calling the phone's GPS.
